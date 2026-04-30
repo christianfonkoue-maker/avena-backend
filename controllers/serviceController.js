@@ -5,6 +5,7 @@
 
 const Service = require('../models/Service');
 const { getFileUrl } = require('../middleware/upload');
+const db = require('../config/db');
 
 /**
  * Create a new service
@@ -15,23 +16,37 @@ async function createService(req, res) {
   
   try {
     let coverImage = null;
+    let imageUrl = null;
+    
     if (req.file) {
-      coverImage = getFileUrl(req, req.file.filename, 'uploads/services');
+      // Construire l'URL complète de l'image
+      const baseUrl = `http://localhost:5000`;
+      imageUrl = `${baseUrl}/uploads/services/${req.file.filename}`;
+      coverImage = imageUrl;
     } else if (req.body.coverImage) {
       coverImage = req.body.coverImage;
+    } else {
+      // Image par défaut
+      coverImage = `https://placehold.co/600x400/4361ee/ffffff?text=${encodeURIComponent(title)}`;
     }
     
-    const service = await Service.create({
-      title,
-      description,
-      category,
-      subcategory,
-      providerId: userId,
-      price: parseFloat(price),
-      priceType: priceType || 'fixed',
-      deliveryDays: deliveryDays ? parseInt(deliveryDays) : null,
-      coverImage,
-    });
+    // Créer le service
+    const result = await db.query(
+      `INSERT INTO services (title, description, category, subcategory, provider_id, price, price_type, delivery_days, cover_image)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [title, description, category, subcategory || null, userId, price, priceType || 'fixed', deliveryDays || null, coverImage]
+    );
+    
+    const service = result.rows[0];
+    
+    // Sauvegarder l'image dans service_images si présente
+    if (imageUrl) {
+      await db.query(
+        `INSERT INTO service_images (service_id, url, sort_order) VALUES ($1, $2, $3)`,
+        [service.id, imageUrl, 0]
+      );
+    }
     
     res.status(201).json({ ok: true, service, message: 'Service created successfully!' });
   } catch (error) {
@@ -76,7 +91,7 @@ async function getService(req, res) {
     res.json({ ok: true, service });
   } catch (error) {
     console.error('Get service error:', error);
-    res.status(500).json({ ok: false, error: 'Internal server error.' });
+    res.status(500).json({ ok: false, error: error.message });
   }
 }
 

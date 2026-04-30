@@ -383,4 +383,4 @@ SELECT id, 'Calculatrices', '#', 3 FROM subcategory_groups WHERE title = 'Fourni
 -- INSERT INTO users (first_name, last_name, email, student_id, university_id, password_hash, role, email_verified)
 -- VALUES ('Admin', 'Avena', 'admin@avenagh.com', 'ADMIN001', (SELECT id FROM universities LIMIT 1), '$2a$10$...', 'admin', true);
 
-COMMIT;
+COMMIT;/

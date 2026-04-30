@@ -137,7 +137,7 @@ async function login(req, res) {
     
     res.json({
       ok: true,
-      token,
+      token: token,
       user: safeUser,
     });
   } catch (error) {
@@ -304,7 +304,7 @@ async function verify2FA(req, res) {
     
     const { password_hash, ...safeUser } = user;
     
-    res.json({ ok: true, token, user: safeUser });
+    res.json({ ok: true, token: token, user: safeUser });
   } catch (error) {
     console.error('2FA verification error:', error);
     res.status(500).json({ ok: false, error: 'Internal server error.' });

@@ -25,33 +25,51 @@ class Service {
   /**
    * Get service by ID
    */
-  static async findById(id) {
-    const result = await db.query(
-      `SELECT s.*, 
-              u.first_name, u.last_name, u.avatar_url as provider_avatar, u.university_id,
-              (SELECT json_agg(image_url) FROM service_images WHERE service_id = s.id ORDER BY sort_order) as images
-       FROM services s
-       LEFT JOIN users u ON s.provider_id = u.id
-       WHERE s.id = $1`,
+ static async findById(id) {
+  // Récupérer le service avec les infos du provider
+  const result = await db.query(
+    `SELECT s.*, 
+            u.first_name, u.last_name, u.avatar_url as provider_avatar, u.university_id
+     FROM services s
+     LEFT JOIN users u ON s.provider_id = u.id
+     WHERE s.id = $1`,
+    [id]
+  );
+  
+  if (result.rows.length === 0) return null;
+  
+  const service = result.rows[0];
+  
+  // Récupérer les images (peut être vide, pas d'erreur)
+  try {
+    const imagesResult = await db.query(
+      `SELECT url FROM service_images WHERE service_id = $1 ORDER BY sort_order`,
       [id]
     );
-    
-    if (result.rows.length === 0) return null;
-    
-    const service = result.rows[0];
-    service.provider = {
-      id: service.provider_id,
-      name: `${service.first_name} ${service.last_name}`,
-      avatar: service.provider_avatar,
-      university: service.university_id,
-    };
-    delete service.provider_id;
-    delete service.first_name;
-    delete service.last_name;
-    delete service.provider_avatar;
-    
-    return service;
+    service.images = imagesResult.rows.map(row => row.url);
+  } catch {
+    service.images = [];
   }
+  
+  service.coverImage = service.cover_image || (service.images?.[0] || null);
+  
+  // Construire l'objet provider
+  service.provider = {
+    id: service.provider_id,
+    name: `${service.first_name} ${service.last_name}`,
+    avatar: service.provider_avatar,
+    university: service.university_id,
+  };
+  
+  // Nettoyer
+  delete service.provider_id;
+  delete service.first_name;
+  delete service.last_name;
+  delete service.provider_avatar;
+  delete service.cover_image;
+  
+  return service;
+}
 
   /**
    * Get all services with filters

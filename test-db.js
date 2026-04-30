@@ -1,8 +1,10 @@
-@'
 const pool = require('./config/db');
 
 pool.query('SELECT NOW()', (err, res) => {
-  if (err) console.error('Error:', err);
-  else console.log('DB time:', res.rows[0]);
+  if (err) {
+    console.error('❌ DB Error:', err);
+  } else {
+    console.log('✅ DB time:', res.rows[0]);
+  }
+  process.exit();
 });
-'@ | Out-File -FilePath test-db.js -Encoding utf8

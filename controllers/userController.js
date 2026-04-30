@@ -80,18 +80,30 @@ async function updateProfile(req, res) {
 async function updateAvatar(req, res) {
   const userId = req.user.id;
   
+  if (!req.file) {
+    return res.status(400).json({ ok: false, error: 'No image file provided.' });
+  }
+  
   try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, error: 'No image file provided.' });
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+    
+    // Mise à jour directe de la base
+    const db = require('../config/db');
+    const result = await db.query(
+      `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2 RETURNING avatar_url`,
+      [avatarUrl, userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ ok: false, error: 'User not found.' });
     }
     
-    const avatarUrl = getFileUrl(req, req.file.filename, 'uploads/avatars');
-    const user = await User.updateAvatar(userId, avatarUrl);
-    
-    res.json({ ok: true, avatarUrl: user.avatar_url, message: 'Avatar updated!' });
+    console.log('✅ Avatar mis à jour en base :', result.rows[0].avatar_url);
+    res.json({ ok: true, avatarUrl: result.rows[0].avatar_url });
   } catch (error) {
-    console.error('Update avatar error:', error);
-    res.status(500).json({ ok: false, error: 'Internal server error.' });
+    console.error('❌ Update avatar error:', error);
+    res.status(500).json({ ok: false, error: error.message });
   }
 }
 

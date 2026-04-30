@@ -23,18 +23,40 @@ uploadDirs.forEach(dir => {
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = 'uploads/';
-    if (file.fieldname === 'avatar') folder = 'uploads/avatars/';
-    else if (file.fieldname === 'product') folder = 'uploads/products/';
-    else if (file.fieldname === 'service') folder = 'uploads/services/';
-    else if (file.fieldname === 'event') folder = 'uploads/events/';
-    else folder = 'uploads/';
+    
+    // Détection basée sur le fieldname
+    if (file.fieldname === 'avatar') {
+      folder = 'uploads/avatars/';
+    } 
+    else if (file.fieldname === 'product') {
+      folder = 'uploads/products/';
+    }
+    else if (file.fieldname === 'service') {
+      folder = 'uploads/services/';
+    }
+    else if (file.fieldname === 'event') {
+      folder = 'uploads/events/';
+    }
+    else if (file.fieldname === 'image') {
+      // Fallback basé sur l'URL de la route
+      if (req.baseUrl && req.baseUrl.includes('/services')) {
+        folder = 'uploads/services/';
+      } else if (req.baseUrl && req.baseUrl.includes('/products')) {
+        folder = 'uploads/products/';
+      } else if (req.baseUrl && req.baseUrl.includes('/events')) {
+        folder = 'uploads/events/';
+      } else {
+        folder = 'uploads/';
+      }
+    }
     
     cb(null, folder);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    // Utiliser un nom générique sans le fieldname pour éviter les confusions
+    cb(null, 'image-' + uniqueSuffix + ext);
   },
 });
 
@@ -71,7 +93,6 @@ const uploadMultiple = (fieldName, maxCount) => upload.array(fieldName, maxCount
 function getFileUrl(req, filename, folder) {
   if (process.env.UPLOAD_MODE === 'cloudinary') {
     // For Cloudinary, return the cloud URL (to be implemented)
-    // return `https://res.cloudinary.com/.../${filename}`;
     return null;
   }
   
