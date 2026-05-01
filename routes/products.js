@@ -19,7 +19,8 @@ router.post('/',
 
 router.get('/', productController.getProducts);
 router.get('/me', authenticate, productController.getMyProducts);
-router.get('/:id', validateIdParam, productController.getProduct);
+router.get('/paginated', productController.getProductsPaginated);   // ← AVANT :id
+router.get('/:id', validateIdParam, productController.getProduct);    // ← APRÈS
 
 router.put('/:id', 
   authenticate, 
