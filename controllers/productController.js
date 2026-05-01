@@ -175,3 +175,47 @@ module.exports = {
   updateProduct,
   deleteProduct
 };
+async function getProductsPaginated(req, res) {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 100;
+  const offset = (page - 1) * limit;
+  const category = req.query.category;
+  const sort = req.query.sort || 'created_at'; // 'views', 'likes', 'price'
+  const order = req.query.order || 'DESC';
+  
+  try {
+    let query = `
+      SELECT p.*, u.first_name, u.last_name
+      FROM products p
+      LEFT JOIN users u ON p.seller_id = u.id
+      WHERE p.status = 'active'
+    `;
+    const params = [];
+    let idx = 1;
+    
+    if (category) {
+      query += ` AND p.category = $${idx++}`;
+      params.push(category);
+    }
+    
+    query += ` ORDER BY ${sort} ${order} LIMIT $${idx++} OFFSET $${idx++}`;
+    params.push(limit, offset);
+    
+    const result = await db.query(query, params);
+    
+    // Compter total
+    const countResult = await db.query('SELECT COUNT(*) FROM products WHERE status = $1', ['active']);
+    const total = parseInt(countResult.rows[0].count);
+    
+    res.json({
+      ok: true,
+      products: result.rows,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error('Get products paginated error:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+}
