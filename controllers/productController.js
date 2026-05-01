@@ -146,7 +146,7 @@ async function updateProduct(req, res) {
   }
 }
 
-// Delete product
+/// Delete product
 async function deleteProduct(req, res) {
   const { id } = req.params;
   
@@ -167,20 +167,13 @@ async function deleteProduct(req, res) {
   }
 }
 
-module.exports = {
-  createProduct,
-  getProducts,
-  getProduct,
-  getMyProducts,
-  updateProduct,
-  deleteProduct
-};
+// Get products with pagination
 async function getProductsPaginated(req, res) {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 100;
   const offset = (page - 1) * limit;
   const category = req.query.category;
-  const sort = req.query.sort || 'created_at'; // 'views', 'likes', 'price'
+  const sort = req.query.sort || 'created_at';
   const order = req.query.order || 'DESC';
   
   try {
@@ -203,7 +196,6 @@ async function getProductsPaginated(req, res) {
     
     const result = await db.query(query, params);
     
-    // Compter total
     const countResult = await db.query('SELECT COUNT(*) FROM products WHERE status = $1', ['active']);
     const total = parseInt(countResult.rows[0].count);
     
@@ -219,3 +211,13 @@ async function getProductsPaginated(req, res) {
     res.status(500).json({ ok: false, error: error.message });
   }
 }
+
+module.exports = {
+  createProduct,
+  getProducts,
+  getProduct,
+  getMyProducts,
+  updateProduct,
+  deleteProduct,
+  getProductsPaginated   // ← AJOUTÉ
+};
