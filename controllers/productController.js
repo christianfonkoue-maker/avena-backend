@@ -17,6 +17,23 @@ async function createProduct(req, res) {
        RETURNING *`,
       [title, description, category, subcategory || null, price, stock || 1, condition || 'new', userId]
     );
+    // Après la création du produit (result.rows[0])
+if (req.files && req.files.length) {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  for (let i = 0; i < req.files.length; i++) {
+    const fileUrl = `${baseUrl}/uploads/products/${req.files[i].filename}`;
+    await db.query(
+      `INSERT INTO product_images (product_id, url, sort_order) VALUES ($1, $2, $3)`,
+      [result.rows[0].id, fileUrl, i]
+    );
+  }
+  
+  // Optionnel : mettre à jour cover_image avec la première image
+  await db.query(
+    `UPDATE products SET cover_image = $1 WHERE id = $2`,
+    [`${baseUrl}/uploads/products/${req.files[0].filename}`, result.rows[0].id]
+  );
+}
     
     res.status(201).json({ ok: true, product: result.rows[0] });
   } catch (error) {
