@@ -143,6 +143,9 @@ CREATE TABLE products (
   status VARCHAR(20) DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+  -- Ajouter après la colonne `cover_image`
+  ALTER TABLE products ADD COLUMN views INTEGER DEFAULT 0;
+  ALTER TABLE products ADD COLUMN likes INTEGER DEFAULT 0;
 );
 
 -- ============================================================

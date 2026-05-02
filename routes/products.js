@@ -7,12 +7,12 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
 const { authenticate, ownershipCheck } = require('../middleware/auth');
-const { uploadSingle } = require('../middleware/upload');
+const { uploadMultiple } = require('../middleware/upload');
 const { validateProduct, validateIdParam } = require('../middleware/validation');
 
 router.post('/', 
   authenticate, 
-  uploadSingle('image'),
+  uploadMultiple('images', 5),
   validateProduct, 
   productController.createProduct
 );

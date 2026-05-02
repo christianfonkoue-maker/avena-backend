@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+console.log('EMAIL_USER from env:', process.env.EMAIL_USER);
 
 // Import routes
 const authRoutes = require('./routes/auth');
