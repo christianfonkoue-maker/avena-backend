@@ -28,19 +28,58 @@ const setupSocketHandlers = require('./socket');
 
 const app = express();
 const server = http.createServer(app);
+
+// ─── ORIGINES AUTORISÉES ──────────────────────────────────────────────────────
+// Ajoute ici tous tes domaines Vercel (preview + production)
+const ALLOWED_ORIGINS = [
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
+  'http://localhost:3000',
+  // Domaine Vercel production — remplace par ton vrai domaine
+  'https://avena.vercel.app',
+  // Pattern pour toutes les preview deployments Vercel de ton projet
+  /^https:\/\/avena(-[a-z0-9]+)*\.vercel\.app$/,
+];
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // requêtes sans origin (ex: Postman, mobile)
+  return ALLOWED_ORIGINS.some(allowed =>
+    allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
+  );
+}
+
+// ─── SOCKET.IO CORS ───────────────────────────────────────────────────────────
 const io = socketIO(server, {
   cors: {
-    origin: ['http://localhost:5500', 'http://127.0.0.1:5500'],
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        console.warn('Socket.IO CORS bloqué:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
+// ─── EXPRESS CORS ─────────────────────────────────────────────────────────────
+app.use(cors({
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
 // Middleware
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" } // Permet le chargement des images cross-origin
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -50,8 +89,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: { ok: false, error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
