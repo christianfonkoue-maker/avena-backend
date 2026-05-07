@@ -36,7 +36,7 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5500',
   'http://localhost:3000',
   // Domaine Vercel production — remplace par ton vrai domaine
-  'https://avena.vercel.app',
+ 'https://avena-c485k9uqy-christianfonkoue-makers-projects.vercel.app',
   // Pattern pour toutes les preview deployments Vercel de ton projet
   /^https:\/\/avena(-[a-z0-9]+)*\.vercel\.app$/,
 ];
