@@ -22,6 +22,8 @@ const eventRoutes = require('./routes/events');
 const messageRoutes = require('./routes/messages');
 const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
+
 
 // Import Socket.IO handlers
 const setupSocketHandlers = require('./socket');
@@ -103,6 +105,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
