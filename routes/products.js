@@ -10,6 +10,9 @@ const { authenticate, ownershipCheck } = require('../middleware/auth');
 const { uploadMultiple } = require('../middleware/upload');
 const { validateProduct, validateIdParam } = require('../middleware/validation');
 
+// ========== NOUVEAU - Doit être avant /:id ==========
+router.get('/category/:categoryKey/filtered', productController.getFilteredProducts);
+
 router.post('/', 
   authenticate, 
   uploadMultiple('images', 5),
@@ -19,8 +22,8 @@ router.post('/',
 
 router.get('/', productController.getProducts);
 router.get('/me', authenticate, productController.getMyProducts);
-router.get('/paginated', productController.getProductsPaginated);   // ← AVANT :id
-router.get('/:id', validateIdParam, productController.getProduct);    // ← APRÈS
+router.get('/paginated', productController.getProductsPaginated);
+router.get('/:id', validateIdParam, productController.getProduct);
 
 router.put('/:id', 
   authenticate, 

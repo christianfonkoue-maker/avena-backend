@@ -4,6 +4,7 @@
  */
 
 const db = require('../config/db');
+const Product = require('../models/Product'); // ========== AJOUTÉ ==========
 
 // Create a product
 async function createProduct(req, res) {
@@ -17,23 +18,22 @@ async function createProduct(req, res) {
        RETURNING *`,
       [title, description, category, subcategory || null, price, stock || 1, condition || 'new', userId]
     );
-    // Après la création du produit (result.rows[0])
-if (req.files && req.files.length) {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  for (let i = 0; i < req.files.length; i++) {
-    const fileUrl = `${baseUrl}/uploads/products/${req.files[i].filename}`;
-    await db.query(
-      `INSERT INTO product_images (product_id, url, sort_order) VALUES ($1, $2, $3)`,
-      [result.rows[0].id, fileUrl, i]
-    );
-  }
-  
-  // Optionnel : mettre à jour cover_image avec la première image
-  await db.query(
-    `UPDATE products SET cover_image = $1 WHERE id = $2`,
-    [`${baseUrl}/uploads/products/${req.files[0].filename}`, result.rows[0].id]
-  );
-}
+    
+    if (req.files && req.files.length) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      for (let i = 0; i < req.files.length; i++) {
+        const fileUrl = `${baseUrl}/uploads/products/${req.files[i].filename}`;
+        await db.query(
+          `INSERT INTO product_images (product_id, url, sort_order) VALUES ($1, $2, $3)`,
+          [result.rows[0].id, fileUrl, i]
+        );
+      }
+      
+      await db.query(
+        `UPDATE products SET cover_image = $1 WHERE id = $2`,
+        [`${baseUrl}/uploads/products/${req.files[0].filename}`, result.rows[0].id]
+      );
+    }
     
     res.status(201).json({ ok: true, product: result.rows[0] });
   } catch (error) {
@@ -88,7 +88,6 @@ async function getProduct(req, res) {
       return res.status(404).json({ ok: false, error: 'Product not found' });
     }
     
-    // Récupérer les images
     const imagesResult = await db.query(
       `SELECT url FROM product_images WHERE product_id = $1 ORDER BY sort_order`,
       [id]
@@ -163,7 +162,7 @@ async function updateProduct(req, res) {
   }
 }
 
-/// Delete product
+// Delete product
 async function deleteProduct(req, res) {
   const { id } = req.params;
   
@@ -184,7 +183,7 @@ async function deleteProduct(req, res) {
   }
 }
 
-// Get products with pagination
+// Get products with pagination (ORIGINAL - kept for compatibility)
 async function getProductsPaginated(req, res) {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 100;
@@ -229,6 +228,63 @@ async function getProductsPaginated(req, res) {
   }
 }
 
+// ========== NOUVEAU ==========
+/**
+ * Get products with advanced filters for category page
+ */
+async function getFilteredProducts(req, res) {
+  const { categoryKey } = req.params;
+  const {
+    sub,
+    priceRange,
+    popularFilters,
+    dynamicFilters,
+    sort = 'newest',
+    page = 1,
+    limit = 12
+  } = req.query;
+  
+  try {
+    // Parse filters
+    let parsedDynamicFilters = {};
+    if (dynamicFilters) {
+      try {
+        parsedDynamicFilters = JSON.parse(dynamicFilters);
+      } catch (e) {
+        parsedDynamicFilters = {};
+      }
+    }
+    
+    let parsedPopularFilters = [];
+    if (popularFilters) {
+      try {
+        parsedPopularFilters = JSON.parse(popularFilters);
+      } catch (e) {
+        parsedPopularFilters = [];
+      }
+    }
+    
+    const result = await Product.getProductsWithFilters({
+      categoryKey,
+      subcategory: sub || null,
+      priceRange: priceRange || null,
+      popularFilters: parsedPopularFilters,
+      dynamicFilters: parsedDynamicFilters,
+      sort,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+    
+    res.json({
+      ok: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('Get filtered products error:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+}
+
 module.exports = {
   createProduct,
   getProducts,
@@ -236,5 +292,6 @@ module.exports = {
   getMyProducts,
   updateProduct,
   deleteProduct,
-  getProductsPaginated   // ← AJOUTÉ
+  getProductsPaginated,
+  getFilteredProducts     // NOUVEAU
 };

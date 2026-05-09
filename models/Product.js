@@ -54,7 +54,7 @@ class Product {
   }
 
   /**
-   * Get all products with filters
+   * Get all products with filters (ORIGINAL - kept for compatibility)
    */
   static async findAll(filters = {}) {
     const { category, subcategory, minPrice, maxPrice, sellerId, search, limit = 24, offset = 0 } = filters;
@@ -103,7 +103,6 @@ class Product {
     
     const result = await db.query(query, params);
     
-    // Format products with seller info
     return result.rows.map(p => ({
       ...p,
       seller: {
@@ -116,6 +115,195 @@ class Product {
       last_name: undefined,
       seller_avatar: undefined,
     }));
+  }
+
+  // ========== NOUVEAU ==========
+  /**
+   * Get products with advanced filters for category page
+   * Supports price ranges, popular filters, and dynamic specs filters
+   */
+  static async getProductsWithFilters({
+    categoryKey,
+    subcategory = null,
+    priceRange = null,
+    popularFilters = [],
+    dynamicFilters = {},
+    sort = 'newest',
+    page = 1,
+    limit = 12
+  }) {
+    const offset = (page - 1) * limit;
+    const params = [];
+    let paramIndex = 1;
+    
+    // Base query with product_specs LEFT JOIN for dynamic filtering
+    let query = `
+      SELECT DISTINCT p.*, 
+             u.first_name, u.last_name, u.avatar_url as seller_avatar
+      FROM products p
+      LEFT JOIN users u ON p.seller_id = u.id
+      WHERE p.status = 'active'
+      AND p.category = $${paramIndex++}
+    `;
+    params.push(categoryKey);
+    
+    // Subcategory filter
+    if (subcategory) {
+      query += ` AND p.subcategory = $${paramIndex++}`;
+      params.push(subcategory);
+    }
+    
+    // Price range filter
+    if (priceRange) {
+      const [min, max] = priceRange.split('-');
+      if (max === 'plus') {
+        query += ` AND p.price >= $${paramIndex++}`;
+        params.push(parseFloat(min));
+      } else {
+        query += ` AND p.price BETWEEN $${paramIndex++} AND $${paramIndex++}`;
+        params.push(parseFloat(min), parseFloat(max));
+      }
+    }
+    
+    // Dynamic filters (product_specs)
+    if (dynamicFilters && Object.keys(dynamicFilters).length > 0) {
+      for (const [specKey, values] of Object.entries(dynamicFilters)) {
+        if (values && values.length > 0) {
+          query += ` AND p.id IN (
+            SELECT product_id FROM product_specs 
+            WHERE spec_key = $${paramIndex++} 
+            AND spec_value = ANY($${paramIndex++})
+          )`;
+          params.push(specKey, values);
+        }
+      }
+    }
+    
+    // Sorting
+    switch (sort) {
+      case 'price_asc':
+        query += ` ORDER BY p.price ASC`;
+        break;
+      case 'price_desc':
+        query += ` ORDER BY p.price DESC`;
+        break;
+      case 'popular':
+        query += ` ORDER BY p.views DESC, p.likes DESC`;
+        break;
+      case 'newest':
+      default:
+        query += ` ORDER BY p.created_at DESC`;
+    }
+    
+    // Pagination
+    query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    params.push(limit, offset);
+    
+    const productsResult = await db.query(query, params);
+    
+    // Get total count for pagination
+    let countQuery = `
+      SELECT COUNT(DISTINCT p.id) 
+      FROM products p
+      WHERE p.status = 'active'
+      AND p.category = $1
+    `;
+    const countParams = [categoryKey];
+    let countIdx = 2;
+    
+    if (subcategory) {
+      countQuery += ` AND p.subcategory = $${countIdx++}`;
+      countParams.push(subcategory);
+    }
+    
+    if (priceRange) {
+      const [min, max] = priceRange.split('-');
+      if (max === 'plus') {
+        countQuery += ` AND p.price >= $${countIdx++}`;
+        countParams.push(parseFloat(min));
+      } else {
+        countQuery += ` AND p.price BETWEEN $${countIdx++} AND $${countIdx++}`;
+        countParams.push(parseFloat(min), parseFloat(max));
+      }
+    }
+    
+    const totalResult = await db.query(countQuery, countParams);
+    const total = parseInt(totalResult.rows[0].count);
+    
+    // Format products
+    const products = productsResult.rows.map(p => ({
+      ...p,
+      seller: {
+        id: p.seller_id,
+        name: `${p.first_name} ${p.last_name}`,
+        avatar: p.seller_avatar,
+      },
+      seller_id: undefined,
+      first_name: undefined,
+      last_name: undefined,
+      seller_avatar: undefined,
+    }));
+    
+    return {
+      products,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      limit
+    };
+  }
+
+  // ========== NOUVEAU ==========
+  /**
+   * Get available filter options for a specific spec key
+   */
+  static async getFilterOptions(categoryKey, filterKey, subcategory = null) {
+    let query = `
+      SELECT DISTINCT ps.spec_value as value, 
+             COUNT(DISTINCT p.id) as count
+      FROM product_specs ps
+      JOIN products p ON p.id = ps.product_id
+      WHERE p.status = 'active'
+      AND p.category = $1
+      AND ps.spec_key = $2
+    `;
+    const params = [categoryKey, filterKey];
+    let idx = 3;
+    
+    if (subcategory) {
+      query += ` AND p.subcategory = $${idx++}`;
+      params.push(subcategory);
+    }
+    
+    query += ` GROUP BY ps.spec_value ORDER BY count DESC LIMIT 20`;
+    
+    const result = await db.query(query, params);
+    return result.rows;
+  }
+
+  // ========== NOUVEAU ==========
+  /**
+   * Get price range distribution for a category
+   */
+  static async getPriceRanges(categoryKey, subcategory = null) {
+    let query = `
+      SELECT 
+        MIN(price) as min_price,
+        MAX(price) as max_price,
+        COUNT(*) as total
+      FROM products
+      WHERE status = 'active'
+      AND category = $1
+    `;
+    const params = [categoryKey];
+    
+    if (subcategory) {
+      query += ` AND subcategory = $2`;
+      params.push(subcategory);
+    }
+    
+    const result = await db.query(query, params);
+    return result.rows[0];
   }
 
   /**
