@@ -10,6 +10,7 @@ const { authenticate, ownershipCheck } = require('../middleware/auth');
 const { uploadSingle } = require('../middleware/upload');
 const { validateService, validateIdParam } = require('../middleware/validation');
 
+
 router.post('/', 
   authenticate, 
   uploadSingle('image'),
